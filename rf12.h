@@ -15,6 +15,10 @@ extern unsigned char rf12_busy(void);									// transmit buffer full ?
 extern void rf12_rxmode(void);
 extern void rf12_stoprx(void);
 
+extern void tx_packet(unsigned char retrans);
+
+extern  unsigned char tx_status;
+
 #define RF12FREQ(freq)	((unsigned short)((freq-430.0)/0.0025))			// macro for calculating frequency value out of frequency in MHz
 
 #define QUIET		1

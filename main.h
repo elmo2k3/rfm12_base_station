@@ -3,7 +3,9 @@
 #define UART_BAUDRATE	19200		// Baudrate des UARTs (nur gültig wenn kein DIP Schalter verwendet wird)
 #define PROTOKOLL_V2
 
-#define MY_ADDRESS 0x00
+#define COMMAND_SET_RELAIS 0
+
+#define MY_ADDRESS 0x0A
 //#define DIP_KEYBOARD
 #define ADDRESS_DDR DDRC
 #define ADDRESS_PIN PINC

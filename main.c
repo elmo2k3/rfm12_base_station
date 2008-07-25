@@ -1,20 +1,3 @@
-/****************************************************************************
- *																			*
- *							universelle RFM12 lib							*
- *																			*
- *								Version 0.9									*
- *																			*
- *								© by Benedikt								*
- *																			*
- *						Email:	benedikt83 ät gmx.net						*
- *																			*
- ****************************************************************************
- *																			*
- *	Die Software darf frei kopiert und verändert werden, solange sie nicht	*
- *	ohne meine Erlaubnis für kommerzielle Zwecke eingesetzt wird.			*
- *																			*
- ***************************************************************************/
-
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
@@ -24,23 +7,33 @@
 #include <portbits.h>
 #include <util/delay.h>
 #include <avr/wdt.h>
+#include <stdio.h>
 
 #include "global.h"
 #include "uart.h"
 #include "rf12.h"
-#include "led.h"
 #include "main.h"
 
 unsigned char getAddress(void);
 unsigned char myAddress;
 unsigned char destination;
+uint8_t relais_port_state __attribute__ ((section (".noinit")));
+static volatile uint8_t mili_sec_counter, uartcount;
 
 int main(void)
 {
+	unsigned char mcucsr;
+
+	mcucsr = MCUCSR;
+	MCUCSR = 0;
+
+
 	//PORTD=255;
 	//DDRD=230;
+	PORTC = relais_port_state;
 	DDRC=255;
-	unsigned char uartcount=0,rxbyte,txbuf[255],counter,numbytes=0;
+
+	unsigned char rxbyte,txbuf[255],counter,numbytes=0,uart_dest=0;
 	#ifdef DIP_KEYBOARD
 	myAddress = getAddress();
 	#else
@@ -48,29 +41,59 @@ int main(void)
 	#endif
 	sei();
 	rf12_init();									// ein paar Register setzen (z.B. CLK auf 10MHz)
-	led_init();
-	wdt_enable(WDTO_120MS);
+	
+	/* Prescaler 1024 */
+	TCCR0 = (1<<CS02) | (1<<CS00);
+	TIMSK |= (1<<TOIE0);
 
-    uart_init(UART_BAUD_SELECT(UART_BAUDRATE, F_CPU));
+	wdt_enable(WDTO_1S);
+
+	uart_init(UART_BAUD_SELECT(UART_BAUDRATE, F_CPU));
+
+	fdevopen((void*)uart_putc,NULL);
+
+	/* Falls der Reset nicht vom Watchdog kam */
+	if(!(mcucsr & (1<<WDRF)))
+	{
+		relais_port_state = 0;
+		printf("%d;%d;%d;%d\r\n",10,10,0,0);
+	}
+	else
+		printf("%d;%d;%d;%d\r\n",10,11,0,0);
+
 	rf12_config(RF_BAUDRATE, CHANNEL, 0, QUIET);	// Baudrate, Kanal (0-3), Leistung (0=max, 7=min), Umgebungsbedingungen (QUIET, NORMAL, NOISY)
 	for (;;)
 	{       
+		wdt_reset();		//Falls Daten im Uartpuffer dann kein watchdog reset! Watchdog wird ausgelöst wenn Paket nicht komplett
 		if(!uartcount)	
-			wdt_reset();		//Falls Daten im Uartpuffer dann kein watchdog reset! Watchdog wird ausgelöst wenn Paket nicht komplett
+			mili_sec_counter = 0;
 		if (uart_data())                                        // Daten im UART Empfangspuffer ?
 		{       
 			rxbyte=uart_getchar();
 			switch(uartcount)
 			{
-				case 0: destination=rxbyte; uartcount++; break; //RF Zieladresse
+				case 0: destination=rxbyte; uart_dest = destination; uartcount++; break; //RF Zieladresse
 				case 1: numbytes=rxbyte; uartcount++; break;	//Anzahl zu empfangender Bytes
 				default: txbuf[uartcount-2]=rxbyte; uartcount++;
 			}
 			if(numbytes==uartcount-2)
 			{
-				for(counter=0;counter<numbytes;counter++)
+				if(uart_dest == myAddress)
 				{
-					rf12_putc(txbuf[counter]);
+					/* txbuf[0] = command */
+					switch(txbuf[0])
+					{
+						case COMMAND_SET_RELAIS: relais_port_state = txbuf[1];
+									 PORTC = relais_port_state;
+									 break;
+					}
+				}
+				else
+				{
+					for(counter=0;counter<numbytes;counter++)
+					{
+						rf12_putc(txbuf[counter]);
+					}
 				}
 				uartcount=0;
 			}
@@ -89,5 +112,15 @@ unsigned char getAddress(void)
 	return ADDRESS_PIN;
 }
 #endif
+/* 100 mal pro Sekunde (ungefaehr) */
+ISR(TIMER0_OVF_vect)
+{
+	TCNT0 = 255-156;
 
+	if(100 == mili_sec_counter++)
+	{
+		printf("%d;%d;%d;%d\r\n",10,12,0,0);
+		uartcount = 0;
+	}
+}
 

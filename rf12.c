@@ -13,14 +13,14 @@
 
 
 #define ANSWER_TIMEOUT	10			// Maximale Wartezeit auf die Bestätigung der Daten in ms (max 500)
-#define RETRY			15			// Maximale Anzahl an Sendeversuchen
+#define RETRY			5			// Maximale Anzahl an Sendeversuchen
 #define MAX_BUF			128			// Maximale Paketgröße
 #define RX_BUF			128			// Empfangs FIFO
 #define TX_TIMEOUT		2			// Maximale Wartezeit auf Daten in ms (max 500)
 
-#define LED_TX		PORTC_1
-#define LED_RX		PORTC_3
-#define LED_ERR		PORTC_0
+//#define LED_TX		PORTC_1
+//#define LED_RX		PORTC_3
+//#define LED_ERR		PORTC_0
 
 
 #define RF_PORT	PORTB
@@ -179,7 +179,7 @@ void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status
 void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status, unsigned char id)
 #endif
 {	unsigned char i, crc;
-	LED_TX=1;
+	//LED_TX=1;
 	rf12_trans(0x8238);					// TX on
 	rf12_ready();
 	rf12_trans(0xB8AA);					// Sync Data
@@ -216,7 +216,7 @@ void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status
 	rf12_txbyte(crc);					// Checksumme hinterher senden
 	rf12_txbyte(0);						// dummy data
 	rf12_trans(0x8208);					// TX off
-	LED_TX=0;
+	//LED_TX=0;
 }
 
 
@@ -226,7 +226,7 @@ ISR(SIG_INTERRUPT0)
 	static unsigned char rx_lastid=255, toAddress, fromAddress;
 #ifdef PROTOKOLL_V2
 	if (bytecnt==0)
-	{	LED_RX=1;
+	{	//LED_RX=1;
 		toAddress=rf12_rxbyte();			// Empfängeradresse
 		crc=_crc_ibutton_update (0, toAddress);
 		bytecnt=1;
@@ -270,13 +270,13 @@ ISR(SIG_INTERRUPT0)
 		crcref=rf12_rxbyte();			// CRC empfangen
 		rf12_trans(0xCA81);				// restart syncword detection:
 		rf12_trans(0xCA83);				// enable FIFO
-		LED_RX=0;
+		//LED_RX=0;
 		if (crcref==crc && toAddress==MY_ADDRESS)				// Wenn CRC OK, Daten übernehmen
 		{	if (status&RECEIVED_OK)		// Empfangsbestätigung ?
 			{	flags&=~WAITFORACK;		// -> "Warten auf Bestätigung"-Flag löschen
 				tx_cnt=0;				// -> Daten als gesendet markieren
 				tx_id++;
-				LED_ERR=0;
+				//LED_ERR=0;
 			}
 			if (number)
 			{	
@@ -307,7 +307,7 @@ ISR(SIG_INTERRUPT0)
 	}
 #else
 	if (bytecnt==0)
-	{	LED_RX=1;
+	{	//LED_RX=1;
 		status=rf12_rxbyte();			// Status
 		crc=_crc_ibutton_update (0, status);
 		bytecnt=1;
@@ -339,13 +339,13 @@ ISR(SIG_INTERRUPT0)
 		crcref=rf12_rxbyte();			// CRC empfangen
 		rf12_trans(0xCA81);				// restart syncword detection:
 		rf12_trans(0xCA83);				// enable FIFO
-		LED_RX=0;
+		//LED_RX=0;
 		if (crcref==crc)				// Wenn CRC OK, Daten übernehmen
 		{	if (status&RECEIVED_OK)		// Empfangsbestätigung ?
 			{	flags&=~WAITFORACK;		// -> "Warten auf Bestätigung"-Flag löschen
 				tx_cnt=0;				// -> Daten als gesendet markieren
 				tx_id++;
-				LED_ERR=0;
+				//LED_ERR=0;
 			}
 			if (number)
 			{	tx_status=RECEIVED_OK;			// zu sendender Status
@@ -385,7 +385,7 @@ ISR(SIG_OUTPUT_COMPARE1A)							// 500Hz Interrupt
 	              	tx_packet(1);					// retransmit
 	    		}
 	    		else								// Versuche abgelaufen
-	    		{	LED_ERR=1;						// -> Fehler LED an
+	    		{	//LED_ERR=1;						// -> Fehler LED an
 	    			tx_cnt=0;						// -> Daten verwerfen
 	    			tx_id++;
 	    			flags&=~WAITFORACK;				// Daten als OK markieren
