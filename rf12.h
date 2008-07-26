@@ -15,6 +15,10 @@ extern unsigned char rf12_busy(void);									// transmit buffer full ?
 extern void rf12_rxmode(void);
 extern void rf12_stoprx(void);
 
+unsigned extern volatile char flags;
+
+extern volatile unsigned char rf12_RxHead;
+
 extern void tx_packet(unsigned char retrans);
 
 extern  unsigned char tx_status;

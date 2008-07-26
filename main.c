@@ -39,14 +39,15 @@ int main(void)
 	#else
 	myAddress = MY_ADDRESS;
 	#endif
-	sei();
-	rf12_init();									// ein paar Register setzen (z.B. CLK auf 10MHz)
 	
 	/* Prescaler 1024 */
 	TCCR0 = (1<<CS02) | (1<<CS00);
-	TIMSK |= (1<<TOIE0);
+	TIMSK = (1<<TOIE0);
 
-	wdt_enable(WDTO_1S);
+	sei();
+	rf12_init();									// ein paar Register setzen (z.B. CLK auf 10MHz)
+
+	//wdt_enable(WDTO_1S);
 
 	uart_init(UART_BAUD_SELECT(UART_BAUDRATE, F_CPU));
 
@@ -64,7 +65,7 @@ int main(void)
 	rf12_config(RF_BAUDRATE, CHANNEL, 0, QUIET);	// Baudrate, Kanal (0-3), Leistung (0=max, 7=min), Umgebungsbedingungen (QUIET, NORMAL, NOISY)
 	for (;;)
 	{       
-		wdt_reset();		//Falls Daten im Uartpuffer dann kein watchdog reset! Watchdog wird ausgelöst wenn Paket nicht komplett
+	//	wdt_reset();		//Falls Daten im Uartpuffer dann kein watchdog reset! Watchdog wird ausgelöst wenn Paket nicht komplett
 		if(!uartcount)	
 			mili_sec_counter = 0;
 		if (uart_data())                                        // Daten im UART Empfangspuffer ?
@@ -115,12 +116,22 @@ unsigned char getAddress(void)
 /* 100 mal pro Sekunde (ungefaehr) */
 ISR(TIMER0_OVF_vect)
 {
+	static uint16_t helloCounter=0;
 	TCNT0 = 255-156;
 
 	if(100 == mili_sec_counter++)
 	{
 		printf("%d;%d;%d;%d\r\n",10,12,0,0);
+//		printf("%d\r\n",flags&1);
+		flags &= ~1;
+		rf12_RxHead = 1;
 		uartcount = 0;
+		mili_sec_counter = 0;
 	}
+	//if(helloCounter++ == 200)
+	//{
+	//	PORTC ^= 1;
+	//	helloCounter = 0;
+	//}
 }
 

@@ -13,7 +13,7 @@
 
 
 #define ANSWER_TIMEOUT	10			// Maximale Wartezeit auf die Bestätigung der Daten in ms (max 500)
-#define RETRY			5			// Maximale Anzahl an Sendeversuchen
+#define RETRY			1			// Maximale Anzahl an Sendeversuchen
 #define MAX_BUF			128			// Maximale Paketgröße
 #define RX_BUF			128			// Empfangs FIFO
 #define TX_TIMEOUT		2			// Maximale Wartezeit auf Daten in ms (max 500)
@@ -39,7 +39,8 @@ volatile unsigned char delaycnt;
 unsigned char txbuf[MAX_BUF],rxbuf[RX_BUF];
 volatile unsigned char rf12_RxHead;
 volatile unsigned char rf12_RxTail;
-unsigned char flags, tx_cnt, tx_id, tx_status, retrans_cnt;
+unsigned char tx_cnt, tx_id, tx_status, retrans_cnt;
+unsigned volatile char flags;
 
 void tx_packet(unsigned char retrans);
 
@@ -73,7 +74,7 @@ void rf12_init(void)
 	TCCR1A=0;
 	TCCR1B=(1<<WGM12)|1;
 	OCR1A=((F_CPU+2500)/500)-1;
-	TIMSK=(1<<OCIE1A);
+	TIMSK|=(1<<OCIE1A);
 
 	for (unsigned char i=0; i<20; i++)
 		_delay_ms(10);					// wait until POR done
