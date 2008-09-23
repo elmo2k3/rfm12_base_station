@@ -17,7 +17,8 @@
 unsigned char getAddress(void);
 unsigned char myAddress;
 unsigned char destination;
-uint8_t relais_port_state __attribute__ ((section (".noinit")));
+//uint8_t relais_port_state __attribute__ ((section (".noinit")));
+uint8_t relais_port_state;
 static volatile uint8_t mili_sec_counter, uartcount;
 
 int main(void)
@@ -56,7 +57,6 @@ int main(void)
 	/* Falls der Reset nicht vom Watchdog kam */
 	if(!(mcucsr & (1<<WDRF)))
 	{
-		relais_port_state = 0;
 		printf("%d;%d;%d;%d\r\n",10,10,0,0);
 	}
 	else
@@ -122,8 +122,6 @@ ISR(TIMER0_OVF_vect)
 	if(100 == mili_sec_counter++)
 	{
 		printf("%d;%d;%d;%d\r\n",10,12,0,0);
-//		printf("%d\r\n",flags&1);
-		flags &= ~1;
 		rf12_RxHead = 1;
 		uartcount = 0;
 		mili_sec_counter = 0;
