@@ -5,7 +5,7 @@
 
 #define COMMAND_SET_RELAIS 0
 
-#define MY_ADDRESS 0x0A
+#define MY_ADDRESS 0x0B
 //#define DIP_KEYBOARD
 #define ADDRESS_DDR DDRC
 #define ADDRESS_PIN PINC

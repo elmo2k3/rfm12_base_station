@@ -33,3 +33,6 @@ extern  unsigned char tx_status;
 #define RECEIVED_FAIL		2		// Daten fehlerhaft empfangen -> bitte nochmal senden
 #define DATAINBUFFER		4		// Empfänger möchte Daten senden
 
+extern volatile unsigned char delaycnt;
+extern void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status, unsigned char id, unsigned char toAddress);
+

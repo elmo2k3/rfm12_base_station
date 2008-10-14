@@ -13,6 +13,7 @@
 #include "uart.h"
 #include "rf12.h"
 #include "main.h"
+#include "lcd.h"
 
 unsigned char getAddress(void);
 unsigned char myAddress;
@@ -28,6 +29,10 @@ int main(void)
 	mcucsr = MCUCSR;
 	MCUCSR = 0;
 
+	lcd_init();
+	lcd_clear();
+	lcd_puts("Hallo Welt!");
+//	lcdInt(123);
 
 	//PORTD=255;
 	//DDRD=230;
@@ -91,10 +96,15 @@ int main(void)
 				}
 				else
 				{
-					for(counter=0;counter<numbytes;counter++)
+					/*for(counter=0;counter<numbytes;counter++)
 					{
 						rf12_putc(txbuf[counter]);
 					}
+					delaycnt = 1;*/
+					static uint8_t txid = 1;
+					rf12_stoprx();
+					rf12_txdata(txbuf, numbytes, 0, txid++, destination);
+					rf12_rxmode();
 				}
 				uartcount=0;
 			}

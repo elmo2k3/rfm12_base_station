@@ -13,10 +13,10 @@
 
 
 #define ANSWER_TIMEOUT	10			// Maximale Wartezeit auf die Bestätigung der Daten in ms (max 500)
-#define RETRY			1			// Maximale Anzahl an Sendeversuchen
+#define RETRY			15			// Maximale Anzahl an Sendeversuchen
 #define MAX_BUF			128			// Maximale Paketgröße
 #define RX_BUF			128			// Empfangs FIFO
-#define TX_TIMEOUT		2			// Maximale Wartezeit auf Daten in ms (max 500)
+#define TX_TIMEOUT		150			// Maximale Wartezeit auf Daten in ms (max 500)
 
 //#define LED_TX		PORTC_1
 //#define LED_RX		PORTC_3
@@ -27,10 +27,10 @@
 #define RF_DDR	DDRB
 #define RF_PIN	PINB
 
-#define SDI		3
-#define SCK		5
-#define CS		2
-#define SDO		4
+#define SDI		5
+#define SCK		7
+#define CS		4
+#define SDO		6
 //		FFIT	PD3
 
 #define WAITFORACK		1
@@ -455,8 +455,8 @@ unsigned char rf12_busy(void)
 void rf12_putc(unsigned char datum)
 {
 	while(flags&WAITFORACK);			// Puffer erst dann füllen, wenn die alten Daten aus dem Puffer wirklich angekommen sind
-	if (!tx_cnt)
-		delaycnt=TX_TIMEOUT/2;			// Nach dem ersten Byte: timeout starten
+/*	if (!tx_cnt)
+		delaycnt=TX_TIMEOUT/2;			// Nach dem ersten Byte: timeout starten */
 	txbuf[tx_cnt++]=datum;
 	if (tx_cnt>=MAX_BUF) 				// Puffer voll -> senden
 	{	tx_status=0;					// zu sendender Status

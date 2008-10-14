@@ -24,7 +24,7 @@
 
 
 # MCU name
-MCU = atmega8
+MCU = atmega32
 
 # Output format. (can be srec, ihex, binary)
 FORMAT = ihex
@@ -39,7 +39,7 @@ TARGET = main
 
 
 # List C source files here. (C dependencies are automatically generated.)
-SRC = $(TARGET).c rf12.c uart.c 
+SRC = $(TARGET).c rf12.c uart.c lcd.c
 
 
 # List Assembler source files here.
