@@ -1,27 +1,40 @@
-#include "main.h"
+/*
+ * Copyright (C) 2007-2008 Bjoern Biesenbach <bjoern@bjoern-b.de>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ *
+ *
+ * 14. Oct 2008
+ * Based on lib of Benedikt benedikt83 at gmx.net
+ */
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/crc16.h>
 #include <portbits.h>
-#include "global.h"
-#include "rf12.h"
-
-
 #include <util/delay.h>
 
+#include "rf12.h"
+#include "main.h"
 
-#define ANSWER_TIMEOUT	10			// Maximale Wartezeit auf die Bestätigung der Daten in ms (max 500)
-#define RETRY			15			// Maximale Anzahl an Sendeversuchen
-#define MAX_BUF			128			// Maximale Paketgröße
-#define RX_BUF			128			// Empfangs FIFO
-#define TX_TIMEOUT		150			// Maximale Wartezeit auf Daten in ms (max 500)
-
-//#define LED_TX		PORTC_1
-//#define LED_RX		PORTC_3
-//#define LED_ERR		PORTC_0
-
+#define ANSWER_TIMEOUT	10	// Maximale Wartezeit auf die Bestätigung der Daten in ms (max 500)
+#define RETRY		1	// Maximale Anzahl an Sendeversuchen
+#define MAX_BUF		128	// Maximale Paketgröße
+#define RX_BUF		128	// Empfangs FIFO
 
 #define RF_PORT	PORTB
 #define RF_DDR	DDRB
@@ -43,6 +56,18 @@ unsigned char tx_cnt, tx_id, tx_status, retrans_cnt;
 unsigned volatile char flags;
 
 void tx_packet(unsigned char retrans);
+
+typedef union conver2_ {
+unsigned int w;
+unsigned char b[2];
+} CONVERTW;
+
+#ifndef cbi
+#define cbi(sfr, bit)     (_SFR_BYTE(sfr) &= ~_BV(bit)) 
+#endif
+#ifndef sbi
+#define sbi(sfr, bit)     (_SFR_BYTE(sfr) |= _BV(bit))  
+#endif
 
 unsigned short rf12_trans(unsigned short wert)
 {	CONVERTW val;
@@ -74,7 +99,7 @@ void rf12_init(void)
 	TCCR1A=0;
 	TCCR1B=(1<<WGM12)|1;
 	OCR1A=((F_CPU+2500)/500)-1;
-	TIMSK|=(1<<OCIE1A);
+//	TIMSK|=(1<<OCIE1A);
 
 	for (unsigned char i=0; i<20; i++)
 		_delay_ms(10);					// wait until POR done
@@ -108,7 +133,7 @@ void rf12_rxmode(void)
 	rf12_trans(0xCA83);					// enable FIFO: sync word search
 	rf12_trans(0);
 	//MCUCR |= (1<<ISC01)|(1<<ISC00);
-	GIFR=(1<<INTF0);
+	//GIFR=(1<<INTF0);
 	GICR|=(1<<INT0);					// Low Level Interrupt für FFIT (über Inverter angeschlossen !)
 }
 
@@ -174,11 +199,8 @@ unsigned char rf12_rxbyte(void)
 	}
 	return val;
 }
-#ifdef PROTOKOLL_V2
-void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status, unsigned char id, unsigned char toAddress)
-#else
-void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status, unsigned char id)
-#endif
+//void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status, unsigned char id, unsigned char toAddress)
+static void rf12_txdata(uint8_t type, uint8_t destination, uint8_t *data, uint8_t length, uint8_t id)
 {	unsigned char i, crc;
 	//LED_TX=1;
 	rf12_trans(0x8238);					// TX on
@@ -192,232 +214,233 @@ void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status
 	rf12_trans(0xB82D);
 	rf12_ready();
 	rf12_trans(0xB8D4);
-	#ifdef PROTOKOLL_V2
-	crc=_crc_ibutton_update (0, toAddress);
-	rf12_txbyte(toAddress);				// Empfänger
-	crc=_crc_ibutton_update (crc, MY_ADDRESS);
-	rf12_txbyte(MY_ADDRESS);				// Sender
-	crc=_crc_ibutton_update (crc, status);
-	rf12_txbyte(status);				// Status
-	#else
-	crc=_crc_ibutton_update (0, status);
-	rf12_txbyte(status);				// Status
-	#endif
-	crc=_crc_ibutton_update (crc, number);
-	rf12_txbyte(number);				// Anzahl der zu sendenden Bytes übertragen
-	if (number)							// nur Status ? Dann keine Daten senden
-	{	crc=_crc_ibutton_update (crc, id);
-		rf12_txbyte(id);				// Paket ID
-		for (i=0; i<number; i++)
-		{	rf12_txbyte(*data);
-			crc=_crc_ibutton_update (crc, *data);
-			data++;
-		}
+
+	/* New protocol starts here 
+	 *
+	 * | Type | Length | Source | Destination | Id | Data | CRC |
+	 */
+
+	switch(type)
+	{
+		/* Only data
+		 * | Type | Length |
+		 */
+		case 0x00:
+			break;
+
+		/* Ping
+		 */
+		case 0x10:
+			break;
+
+		/* Pong
+		 */
+		case 0x11:
+			break;
+
+		/* Ack
+		 */
+		case 0x12:
+			break;
+
+		/* Retransmission request
+		 */
+		case 0x13:
+			break;
+
+		/* Data + CRC
+		 */
+		case 0x18:
+			break;
+
+		/* Data + CRC + Id
+		 */
+		case 0x19:
+			crc = _crc_ibutton_update(0,type);
+			rf12_txbyte(type);
+			crc = _crc_ibutton_update(crc, length);
+			rf12_txbyte(length);
+			crc = _crc_ibutton_update(crc, destination);
+			rf12_txbyte(destination);
+			crc = _crc_ibutton_update(crc, MY_ADDRESS);
+			rf12_txbyte(MY_ADDRESS);
+			crc = _crc_ibutton_update(crc, id);
+			rf12_txbyte(id);
+			for(i=0;i<length;i++)
+			{
+				crc = _crc_ibutton_update(crc, *data);
+				rf12_txbyte(*data++);
+			}
+			rf12_txbyte(crc); // append crc
+			rf12_txbyte(0); // dummy data
+			rf12_trans(0x8208); // tx off
+			break;
+			
+
+		/* Data + CRC + Id + Ack request
+		 */
+		case 0x1A:
+			break;
 	}
-	rf12_txbyte(crc);					// Checksumme hinterher senden
-	rf12_txbyte(0);						// dummy data
-	rf12_trans(0x8208);					// TX off
-	//LED_TX=0;
+
 }
 
 
 ISR(SIG_INTERRUPT0)
 {	
-	static unsigned char bytecnt, status, number, id, crc,rf_data[MAX_BUF];
-	static unsigned char rx_lastid=255, toAddress, fromAddress;
-#ifdef PROTOKOLL_V2
+	static unsigned char bytecnt=0, status, number, id, crc,rf_data[MAX_BUF];
+	static unsigned char rx_lastid=255, toAddress, fromAddress, type;
+	static uint16_t stupidcounter = 0;
+
 	if (bytecnt==0)
-	{	//LED_RX=1;
-		toAddress=rf12_rxbyte();			// Empfängeradresse
-		crc=_crc_ibutton_update (0, toAddress);
+	{
+		type = rf12_rxbyte(); // type of packet
 		bytecnt=1;
 	}
-	else if (bytecnt==1)
-	{	
-		fromAddress=rf12_rxbyte();			// Empfängeradresse
-		crc=_crc_ibutton_update (crc, fromAddress);
-		bytecnt=2;
-	}
-	else if (bytecnt==2)
-	{	
-		status=rf12_rxbyte();			// Status
-		crc=_crc_ibutton_update (crc, status);
-		bytecnt=3;
-	}
-	else if (bytecnt==3)
-	{	number=rf12_rxbyte();			// Anzahl der zu empfangenden Bytes
-		crc=_crc_ibutton_update (crc, number);
-		if (number>MAX_BUF)
-			number=MAX_BUF;
-		if (number)
-			bytecnt=4;
+	/*else if(type == 0x00)
+	{
+		if(bytecnt==2)
+		{
+			number = rf12_rxbyte();
+			bytecnt++;
+		}
 		else
-			bytecnt=255;
-	}
-	else if (bytecnt==4)
-	{	id=rf12_rxbyte();				// Paketnummer
-		crc=_crc_ibutton_update (crc, id);
-		bytecnt=5;
-	}
-	else if (bytecnt<255)
-	{	rf_data[bytecnt-5]=rf12_rxbyte();
-		crc=_crc_ibutton_update (crc, rf_data[bytecnt-5]);
-		bytecnt++;
-		if ((bytecnt-5)>=number)		// alle Bytes empfangen ?
-			bytecnt=255;
-	}
-	else
-	{	unsigned char crcref;
-		crcref=rf12_rxbyte();			// CRC empfangen
-		rf12_trans(0xCA81);				// restart syncword detection:
-		rf12_trans(0xCA83);				// enable FIFO
-		//LED_RX=0;
-		if (crcref==crc && toAddress==MY_ADDRESS)				// Wenn CRC OK, Daten übernehmen
-		{	if (status&RECEIVED_OK)		// Empfangsbestätigung ?
-			{	flags&=~WAITFORACK;		// -> "Warten auf Bestätigung"-Flag löschen
-				tx_cnt=0;				// -> Daten als gesendet markieren
-				tx_id++;
-				//LED_ERR=0;
-			}
-			if (number)
+		{
+			unsigned char i, tmphead;
+			tmphead = rf12_RxHead;
+			for(i=0; i<number; i++)	// Komplettes Paket in den Empfangspuffer kopieren
 			{	
-				destination=fromAddress;
-				tx_status=RECEIVED_OK;			// zu sendender Status
-				tx_packet(0);					// Empfangsbestätigung senden
-				retrans_cnt=RETRY;				// Retry Counter neu starten
-				if (id!=rx_lastid)				// Handelt es sich um neue Daten ?
-				{	rx_lastid=id;				// Aktuelle ID speichern
-					unsigned char i, tmphead;
-					tmphead = rf12_RxHead;
-					for(i=0; i<number; i++)	// Komplettes Paket in den Empfangspuffer kopieren
-					{	tmphead++;
-		    			if (tmphead>=RX_BUF)
-		    				tmphead=0;
-		    			if (tmphead == rf12_RxTail)	// receive buffer overflow !!!
-		    			{	break;				// restlichen Daten ignorieren
-		    			}
-		    			else
-		    			{	rxbuf[tmphead] = rf_data[i]; // Daten in Empfangspuffer kopieren
-		    			}	
-					}
-					rf12_RxHead = tmphead;
-				}
+				tmphead++;
+				if (tmphead>=RX_BUF)
+					tmphead=0;
+				if (tmphead == rf12_RxTail)	// receive buffer overflow !!!
+					break;				// restlichen Daten ignorieren
+				else
+					rxbuf[tmphead] = rf_data[i]; // Daten in Empfangspuffer kopieren
 			}
+			rf12_RxHead = tmphead;
+			bytecnt=0;
+			stupidcounter = 0;
 		}
-		bytecnt=0;
-	}
-#else
-	if (bytecnt==0)
-	{	//LED_RX=1;
-		status=rf12_rxbyte();			// Status
-		crc=_crc_ibutton_update (0, status);
-		bytecnt=1;
-	}
-	else if (bytecnt==1)
-	{	number=rf12_rxbyte();			// Anzahl der zu empfangenden Bytes
-		crc=_crc_ibutton_update (crc, number);
-		if (number>MAX_BUF)
-			number=MAX_BUF;
-		if (number)
+	}*/
+	else if(type == 0x19)
+	{
+		if (bytecnt==1)
+		{	
+			crc =_crc_ibutton_update (0, type);
+			number = rf12_rxbyte();	 // number of bytes of data
+			crc=_crc_ibutton_update (crc, number);
 			bytecnt=2;
+		}
+		else if (bytecnt==2)
+		{	
+			toAddress = rf12_rxbyte();			// destination
+			crc=_crc_ibutton_update (crc, toAddress);
+			bytecnt=3;
+		}
+		else if (bytecnt==3)
+		{	
+			fromAddress = rf12_rxbyte();			// source
+			crc=_crc_ibutton_update (crc, fromAddress);
+			bytecnt = 4;
+		}
+		else if (bytecnt==4)
+		{	id = rf12_rxbyte();				// packet id
+			crc = _crc_ibutton_update (crc, id);
+			bytecnt=5;
+		}
+		else if (bytecnt<255)
+		{	rf_data[bytecnt-5]=rf12_rxbyte();
+			crc=_crc_ibutton_update (crc, rf_data[bytecnt-5]);
+			bytecnt++;
+			if ((bytecnt-5)>=number)		// all bytes received?
+				bytecnt=255;
+		}
 		else
-			bytecnt=255;
-	}
-	else if (bytecnt==2)
-	{	id=rf12_rxbyte();				// Paketnummer
-		crc=_crc_ibutton_update (crc, id);
-		bytecnt=3;
-	}
-	else if (bytecnt<255)
-	{	rf_data[bytecnt-3]=rf12_rxbyte();
-		crc=_crc_ibutton_update (crc, rf_data[bytecnt-3]);
-		bytecnt++;
-		if ((bytecnt-3)>=number)		// alle Bytes empfangen ?
-			bytecnt=255;
-	}
-	else
-	{	unsigned char crcref;
-		crcref=rf12_rxbyte();			// CRC empfangen
-		rf12_trans(0xCA81);				// restart syncword detection:
-		rf12_trans(0xCA83);				// enable FIFO
-		//LED_RX=0;
-		if (crcref==crc)				// Wenn CRC OK, Daten übernehmen
-		{	if (status&RECEIVED_OK)		// Empfangsbestätigung ?
-			{	flags&=~WAITFORACK;		// -> "Warten auf Bestätigung"-Flag löschen
-				tx_cnt=0;				// -> Daten als gesendet markieren
-				tx_id++;
-				//LED_ERR=0;
-			}
-			if (number)
-			{	tx_status=RECEIVED_OK;			// zu sendender Status
-				tx_packet(0);					// Empfangsbestätigung senden
-				retrans_cnt=RETRY;				// Retry Counter neu starten
-				if (id!=rx_lastid)				// Handelt es sich um neue Daten ?
-				{	rx_lastid=id;				// Aktuelle ID speichern
+		{	
+			unsigned char crcref;
+			crcref = rf12_rxbyte();			// CRC received
+			rf12_trans(0xCA81);			// restart syncword detection:
+			rf12_trans(0xCA83);			// enable FIFO
+
+			lcd_clear();
+			lcdInt(crc);
+			lcd_data(' ');
+			lcdInt(crcref);
+			
+			if (crcref == crc && toAddress == MY_ADDRESS) // CRC ok and packet for me
+			{
+				if (id!=rx_lastid) // new data?
+				{	
 					unsigned char i, tmphead;
+
+					rx_lastid = id;	// save current id
 					tmphead = rf12_RxHead;
 					for(i=0; i<number; i++)	// Komplettes Paket in den Empfangspuffer kopieren
-					{	tmphead++;
-		    			if (tmphead>=RX_BUF)
-		    				tmphead=0;
-		    			if (tmphead == rf12_RxTail)	// receive buffer overflow !!!
-		    			{	break;				// restlichen Daten ignorieren
-		    			}
-		    			else
-		    			{	rxbuf[tmphead] = rf_data[i]; // Daten in Empfangspuffer kopieren
-		    			}	
+					{	
+						tmphead++;
+						if (tmphead>=RX_BUF)
+							tmphead=0;
+						if (tmphead == rf12_RxTail)	// receive buffer overflow !!!
+							break;				// restlichen Daten ignorieren
+						else
+							rxbuf[tmphead] = rf_data[i]; // Daten in Empfangspuffer kopieren
 					}
 					rf12_RxHead = tmphead;
 				}
 			}
+			bytecnt=0;
+			stupidcounter = 0;
 		}
-		bytecnt=0;
+	} // end type 0x19
+
+	if(++stupidcounter > 256)
+	{
+		bytecnt = 0;
+		stupidcounter = 0;
 	}
-#endif
 }
 
-ISR(SIG_OUTPUT_COMPARE1A)							// 500Hz Interrupt
+/*ISR(SIG_OUTPUT_COMPARE1A)							// 500Hz Interrupt
 {	
 	if ((tx_cnt)||(flags&WAITFORACK))				// Nur zählen wenn gebraucht
-	{	if (!--delaycnt)
-    	{	if (flags&WAITFORACK)					// Timeout beim Warten auf Empfangsbestätigung
-			{	if (retrans_cnt)
-	    		{	retrans_cnt--;
-	              	tx_packet(1);					// retransmit
-	    		}
-	    		else								// Versuche abgelaufen
-	    		{	//LED_ERR=1;						// -> Fehler LED an
-	    			tx_cnt=0;						// -> Daten verwerfen
-	    			tx_id++;
-	    			flags&=~WAITFORACK;				// Daten als OK markieren
+	{	
+		if (!--delaycnt)
+		{	
+			if (flags&WAITFORACK)					// Timeout beim Warten auf Empfangsbestätigung
+			{	
+				if (retrans_cnt)
+				{	
+					retrans_cnt--;
+					tx_packet(1);					// retransmit
 				}
-    		}
+				else								// Versuche abgelaufen
+				{	//LED_ERR=1;						// -> Fehler LED an
+					tx_cnt=0;						// -> Daten verwerfen
+					tx_id++;
+					flags&=~WAITFORACK;				// Daten als OK markieren
+				}
+			}
 			else if (tx_cnt)
-        	{	tx_status=0;					// zu sendender Status
-        		tx_packet(0);					// erstmaliger Transfer
-        	}
-    	}
+			{	
+				tx_status=0;					// zu sendender Status
+				tx_packet(0);					// erstmaliger Transfer
+			}
+		}
 	}
 }
+
 
 void tx_packet(unsigned char retrans)
 {
 	rf12_stoprx();									// auf TX umschalten
 	if ((!retrans)&&((flags&WAITFORACK)||(tx_cnt==0))) // es wird noch auf eine Antwort vom Paket gewartet oder es sind keine Daten zu senden
 	{   	
-#ifdef PROTOKOLL_V2 
 		rf12_txdata(txbuf, 0, tx_status, 0, destination);		// -> kein komplettes neues Paket, sondern nur Status senden
-		#else
-		rf12_txdata(txbuf, 0, tx_status, 0);
-#endif
 	}
 	else
 	{	
-#ifdef PROTOKOLL_V2
 		rf12_txdata(txbuf, tx_cnt, tx_status, tx_id, destination); // komplettes Paket senden
-#else
-		rf12_txdata(txbuf, tx_cnt, tx_status, tx_id);
-#endif
 		flags|=WAITFORACK;							// auf ACK warten
 		delaycnt=ANSWER_TIMEOUT/2;					// Timeout Counter neu starten
 		if (!retrans)								// erstmalige Übertragung ?
@@ -425,6 +448,7 @@ void tx_packet(unsigned char retrans)
 	}
 	rf12_rxmode();									// wieder auf RX umschalten
 }
+*/
 
 unsigned char rf12_data(void)
 {
@@ -451,16 +475,31 @@ unsigned char rf12_busy(void)
 	else
 		return 0;
 }
-
+/*
 void rf12_putc(unsigned char datum)
 {
 	while(flags&WAITFORACK);			// Puffer erst dann füllen, wenn die alten Daten aus dem Puffer wirklich angekommen sind
-/*	if (!tx_cnt)
-		delaycnt=TX_TIMEOUT/2;			// Nach dem ersten Byte: timeout starten */
 	txbuf[tx_cnt++]=datum;
 	if (tx_cnt>=MAX_BUF) 				// Puffer voll -> senden
 	{	tx_status=0;					// zu sendender Status
 		tx_packet(0);					// erstmaliger Transfer
+	}
+}
+*/
+
+void rf12_txpacket(uint8_t *data, uint8_t count, uint8_t address, uint8_t ack_required)
+{
+	static uint8_t tx_id = 0;
+	uint8_t counter;
+
+	if(!ack_required)
+	{
+		rf12_stoprx();
+		rf12_txdata(0x19, address, data, count, tx_id++);
+		rf12_rxmode();
+	}
+	else
+	{
 	}
 }
 

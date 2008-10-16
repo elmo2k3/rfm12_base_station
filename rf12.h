@@ -1,38 +1,62 @@
+/*
+ * Copyright (C) 2007-2008 Bjoern Biesenbach <bjoern@bjoern-b.de>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ *
+ *
+ * 14. Oct 2008
+ * Based on lib of Benedikt benedikt83 at gmx.net
+ */
 
-extern unsigned short rf12_trans(unsigned short wert);					// transfer 1 word to/from module
-extern void rf12_init(void);											// initialize module
-extern void rf12_setfreq(unsigned short freq);							// set center frequency
-extern void rf12_setbaud(unsigned short baud);							// set baudrate
-extern void rf12_setpower(unsigned char power, unsigned char mod);		// set transmission settings
-extern void rf12_setbandwidth(unsigned char bandwidth, unsigned char gain, unsigned char drssi);	// set receiver settings
-extern void rf12_config(unsigned short baudrate, unsigned char channel, unsigned char power, unsigned char environment);	// config module
+/** initialize module
+ */
+extern void rf12_init(void);
 
-extern unsigned char rf12_data(void);									// data in receive buffer ?
-extern unsigned char rf12_getchar(void);								// get one byte from receive buffer
-extern void rf12_putc(unsigned char datum);								// put one byte into transmit buffer
-extern unsigned char rf12_busy(void);									// transmit buffer full ?
+/** configure module
+ */
+extern void rf12_config(unsigned short baudrate, 
+		unsigned char channel,
+		unsigned char power,
+		unsigned char environment);
 
-extern void rf12_rxmode(void);
-extern void rf12_stoprx(void);
+/** transmit a packet
+ */
+extern void rf12_txpacket(uint8_t *data, uint8_t count, uint8_t address, uint8_t ack_required);
 
-unsigned extern volatile char flags;
+/** data in receive buffer?
+ */
+extern unsigned char rf12_data(void);
 
-extern volatile unsigned char rf12_RxHead;
+/** get one byte from receive buffer
+ */
+extern unsigned char rf12_getchar(void);
 
-extern void tx_packet(unsigned char retrans);
+/** transmit buffer full?
+ */
+extern unsigned char rf12_busy(void);
 
-extern  unsigned char tx_status;
-
-#define RF12FREQ(freq)	((unsigned short)((freq-430.0)/0.0025))			// macro for calculating frequency value out of frequency in MHz
+/** macro for calculating frequency value out of frequency in MHz
+ */
+#define RF12FREQ(freq)	((unsigned short)((freq-430.0)/0.0025))
 
 #define QUIET		1
 #define NORMAL		2
 #define NOISY		3
 
-#define RECEIVED_OK			1		// Daten erfolgreich empfangen
+#define RECEIVED_OK		1		// Daten erfolgreich empfangen
 #define RECEIVED_FAIL		2		// Daten fehlerhaft empfangen -> bitte nochmal senden
 #define DATAINBUFFER		4		// Empfänger möchte Daten senden
-
-extern volatile unsigned char delaycnt;
-extern void rf12_txdata(unsigned char *data, unsigned char number, unsigned char status, unsigned char id, unsigned char toAddress);
 

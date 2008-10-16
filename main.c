@@ -17,13 +17,13 @@
 
 unsigned char getAddress(void);
 unsigned char myAddress;
-unsigned char destination;
 //uint8_t relais_port_state __attribute__ ((section (".noinit")));
 uint8_t relais_port_state;
 static volatile uint8_t mili_sec_counter, uartcount;
 
 int main(void)
 {
+	unsigned char destination;
 	unsigned char mcucsr;
 
 	mcucsr = MCUCSR;
@@ -101,17 +101,17 @@ int main(void)
 						rf12_putc(txbuf[counter]);
 					}
 					delaycnt = 1;*/
-					static uint8_t txid = 1;
-					rf12_stoprx();
-					rf12_txdata(txbuf, numbytes, 0, txid++, destination);
-					rf12_rxmode();
+					rf12_txpacket(txbuf, numbytes, destination, 0);
 				}
 				uartcount=0;
 			}
 		}
 		
 		if (rf12_data())                                        // Daten im RF12 Empfangspuffer ?
-			uart_putc(rf12_getchar());	
+		{
+			unsigned char rxbyte = rf12_getchar();
+			uart_putc(rxbyte);	
+		}
 	}
 }
 
@@ -132,7 +132,6 @@ ISR(TIMER0_OVF_vect)
 	if(100 == mili_sec_counter++)
 	{
 		printf("%d;%d;%d;%d\r\n",10,12,0,0);
-		rf12_RxHead = 1;
 		uartcount = 0;
 		mili_sec_counter = 0;
 	}
