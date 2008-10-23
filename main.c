@@ -24,70 +24,55 @@
  *        PD7 Buzzer
  */
 
-unsigned char getAddress(void);
-unsigned char myAddress;
 uint8_t relais_port_state;
 static volatile uint8_t mili_sec_counter, uartcount;
 
 int main(void)
 {
-	unsigned char destination;
-	unsigned char mcucsr;
-
-	mcucsr = MCUCSR;
-	MCUCSR = 0;
+	unsigned char destination = 0;
+	unsigned char rxbyte,txbuf[255],numbytes=0,uart_dest=0;
 
 	uart_init(UART_BAUD_SELECT(UART_BAUDRATE, F_CPU));
 
+	/* now we can use printf. the output goes to uart */
 	fdevopen((void*)uart_putc,NULL);
-	
-	/* Falls der Reset nicht vom Watchdog kam */
-	if(!(mcucsr & (1<<WDRF)))
-	{
-		printf("%d;%d;%d;%d\r\n",10,10,0,0);
-	}
-	else
-		printf("%d;%d;%d;%d\r\n",10,11,0,0);
+
+	/* say hello! command to tell had that a hard-reset occured */
+	printf("%d;%d;%d;%d\r\n",10,10,0,0);
 
 	lcd_init();
 	lcd_clear();
 	lcd_puts("Hallo Welt!");
-//	lcdInt(123);
-
-	//PORTD=255;
-	//DDRD=230;
-	PORTC = relais_port_state;
+	
 	DDRC=255;
 
 	DDRA |= (1<<PA7); // LED Backlight
 	DDRD |= (1<<PD7); // Buzzer
 	PORTD |= (1<<PD7); // Buzzer off!
 
-	unsigned char rxbyte,txbuf[255],counter,numbytes=0,uart_dest=0;
-	#ifdef DIP_KEYBOARD
-	myAddress = getAddress();
-	#else
-	myAddress = MY_ADDRESS;
-	#endif
 	
 	/* Prescaler 1024 */
 	TCCR0 = (1<<CS02) | (1<<CS00);
 	TIMSK = (1<<TOIE0);
 
-	rf12_init(1);									// ein paar Register setzen (z.B. CLK auf 10MHz)
+	/* init rfm12
+	 * 1 is for first init (with delay loop) */
+	rf12_init(1);
+
 	sei();
 
-	//wdt_enable(WDTO_1S);
-
-
-	rf12_config(RF_BAUDRATE, CHANNEL, 0, QUIET);	// Baudrate, Kanal (0-3), Leistung (0=max, 7=min), Umgebungsbedingungen (QUIET, NORMAL, NOISY)
+	/* Badurate, Channel .... */
+	rf12_config(RF_BAUDRATE, CHANNEL, 0, QUIET);
 	for (;;)
 	{       
-	//	wdt_reset();		//Falls Daten im Uartpuffer dann kein watchdog reset! Watchdog wird ausgelöst wenn Paket nicht komplett
 		if(!uartcount)	
 			mili_sec_counter = 0;
-		if (uart_data())                                        // Daten im UART Empfangspuffer ?
+
+		/* data in the uart buffer? */
+		if (uart_data())
 		{       
+			/* first byte: destination
+			 * second byte: number of data bytes */
 			rxbyte=uart_getchar();
 			switch(uartcount)
 			{
@@ -95,9 +80,11 @@ int main(void)
 				case 1: numbytes=rxbyte; uartcount++; break;	//Anzahl zu empfangender Bytes
 				default: txbuf[uartcount-2]=rxbyte; uartcount++;
 			}
+			/* last byte received? */
 			if(numbytes==uartcount-2)
 			{
-				if(uart_dest == myAddress)
+				/* is the packet for me? */
+				if(uart_dest == MY_ADDRESS)
 				{
 					/* txbuf[0] = command */
 					switch(txbuf[0])
@@ -123,39 +110,28 @@ int main(void)
 									 break;
 					}
 				}
+				/* packet is not for me, send it via rf */
 				else
 				{
-					/*for(counter=0;counter<numbytes;counter++)
-					{
-						rf12_putc(txbuf[counter]);
-					}
-					delaycnt = 1;*/
 					rf12_txpacket(txbuf, numbytes, destination, 0);
 				}
 				uartcount=0;
 			}
 		}
 		
-		if (rf12_data())                                        // Daten im RF12 Empfangspuffer ?
+		/* got data from rfm12? */
+		if (rf12_data())
 		{
 			unsigned char rxbyte = rf12_getchar();
+			/* put every byte to uart */
 			uart_putc(rxbyte);	
 		}
 	}
 }
 
-#ifdef DIP_KEYBOARD
-unsigned char getAddress(void)
-{
-	ADDRESS_DDR = 0x00; // ganzer Port ist Input
-	ADDRESS_PORT = 0xFF; // alle Pullups an
-	return ADDRESS_PIN;
-}
-#endif
 /* 100 mal pro Sekunde (ungefaehr) */
 ISR(TIMER0_OVF_vect)
 {
-	static uint16_t helloCounter=0;
 	TCNT0 = 255-156;
 
 	if(100 == mili_sec_counter++)
@@ -164,10 +140,5 @@ ISR(TIMER0_OVF_vect)
 		uartcount = 0;
 		mili_sec_counter = 0;
 	}
-	//if(helloCounter++ == 200)
-	//{
-	//	PORTC ^= 1;
-	//	helloCounter = 0;
-	//}
 }
 
