@@ -1,5 +1,3 @@
-# Makefile to compile and link the UARTlibrary and test program
-# 
 # based on
 # WinAVR Sample makefile written by Eric B. Weddington, Jörg Wunsch, et al.
 #
@@ -31,7 +29,7 @@ FORMAT = ihex
 
 # Optimization level, can be [0, 1, 2, 3, s]. 0 turns off optimization.
 # (Note: 3 is not always the best optimization level. See avr-libc FAQ.)
-OPT = 2
+OPT = s
 
 
 # Target file name (without extension).

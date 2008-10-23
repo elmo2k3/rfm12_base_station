@@ -15,9 +15,17 @@
 #include "main.h"
 #include "lcd.h"
 
+/* Port usage
+ *
+ * PORTA: PA0-PA5 LCD
+ *        PA7 LCD Backlight active low
+ *
+ * PORTD: PD3-PD6 Digital inputs
+ *        PD7 Buzzer
+ */
+
 unsigned char getAddress(void);
 unsigned char myAddress;
-//uint8_t relais_port_state __attribute__ ((section (".noinit")));
 uint8_t relais_port_state;
 static volatile uint8_t mili_sec_counter, uartcount;
 
@@ -29,6 +37,18 @@ int main(void)
 	mcucsr = MCUCSR;
 	MCUCSR = 0;
 
+	uart_init(UART_BAUD_SELECT(UART_BAUDRATE, F_CPU));
+
+	fdevopen((void*)uart_putc,NULL);
+	
+	/* Falls der Reset nicht vom Watchdog kam */
+	if(!(mcucsr & (1<<WDRF)))
+	{
+		printf("%d;%d;%d;%d\r\n",10,10,0,0);
+	}
+	else
+		printf("%d;%d;%d;%d\r\n",10,11,0,0);
+
 	lcd_init();
 	lcd_clear();
 	lcd_puts("Hallo Welt!");
@@ -38,6 +58,10 @@ int main(void)
 	//DDRD=230;
 	PORTC = relais_port_state;
 	DDRC=255;
+
+	DDRA |= (1<<PA7); // LED Backlight
+	DDRD |= (1<<PD7); // Buzzer
+	PORTD |= (1<<PD7); // Buzzer off!
 
 	unsigned char rxbyte,txbuf[255],counter,numbytes=0,uart_dest=0;
 	#ifdef DIP_KEYBOARD
@@ -50,22 +74,11 @@ int main(void)
 	TCCR0 = (1<<CS02) | (1<<CS00);
 	TIMSK = (1<<TOIE0);
 
+	rf12_init(1);									// ein paar Register setzen (z.B. CLK auf 10MHz)
 	sei();
-	rf12_init();									// ein paar Register setzen (z.B. CLK auf 10MHz)
 
 	//wdt_enable(WDTO_1S);
 
-	uart_init(UART_BAUD_SELECT(UART_BAUDRATE, F_CPU));
-
-	fdevopen((void*)uart_putc,NULL);
-
-	/* Falls der Reset nicht vom Watchdog kam */
-	if(!(mcucsr & (1<<WDRF)))
-	{
-		printf("%d;%d;%d;%d\r\n",10,10,0,0);
-	}
-	else
-		printf("%d;%d;%d;%d\r\n",10,11,0,0);
 
 	rf12_config(RF_BAUDRATE, CHANNEL, 0, QUIET);	// Baudrate, Kanal (0-3), Leistung (0=max, 7=min), Umgebungsbedingungen (QUIET, NORMAL, NOISY)
 	for (;;)
@@ -91,6 +104,22 @@ int main(void)
 					{
 						case COMMAND_SET_RELAIS: relais_port_state = txbuf[1];
 									 PORTC = relais_port_state;
+									 break;
+						case COMMAND_ACTIVATE_LCD: 
+									 PORTA &= ~(1<<PA7);
+									 break;
+						case COMMAND_DEACTIVATE_LCD: 
+									 PORTA |= (1<<PA7);
+									 break;
+						case COMMAND_BEEP_ON: 
+									 PORTD &= ~(1<<PD7);
+									 break;
+						case COMMAND_BEEP_OFF: 
+									 PORTD |= (1<<PD7);
+									 break;
+						case COMMAND_LCD_TEXT: 
+									 lcd_clear();
+									 lcd_puts(&txbuf[1]);
 									 break;
 					}
 				}
