@@ -45,8 +45,11 @@
  *        PD7 Buzzer
  */
 
+#define KEY_INPUT (PIND & ((1<<PD3)|(1<<PD4)|(1<<PD5)|(1<<PD6)))
+
 uint8_t relais_port_state;
 static volatile uint8_t mili_sec_counter, uartcount;
+static volatile char key_state, key_temp; 
 
 int main(void)
 {
@@ -70,6 +73,10 @@ int main(void)
 	DDRA |= (1<<PA7); // LED Backlight
 	DDRD |= (1<<PD7); // Buzzer
 	PORTD |= (1<<PD7); // Buzzer off!
+	
+	DDRD &= ~((1<<PD3)|(1<<PD4)|(1<<PD5)|(1<<PD6));
+
+	PORTD |= (1<<PD3)|(1<<PD4)|(1<<PD5)|(1<<PD6); //Pullups
 
 	
 	/* Prescaler 1024 */
@@ -84,6 +91,9 @@ int main(void)
 
 	/* Badurate, Channel .... */
 	rf12_config(RF_BAUDRATE, CHANNEL, 0, QUIET);
+
+	key_state = KEY_INPUT;
+
 	for (;;)
 	{       
 		if(!uartcount)	
@@ -147,8 +157,45 @@ int main(void)
 			/* put every byte to uart */
 			uart_putc(rxbyte);	
 		}
+
+		/* digital input changed? */
+		key_temp = KEY_INPUT;
+		if(key_state != key_temp)
+		{
+			if((key_temp & (1<<PD3)) != (key_state & (1<<PD3)))
+			{
+				if(key_temp& (1<<PD3)) // now open
+					printf("10;30;0;0\r\n");
+				else // now closed
+					printf("10;31;0;0\r\n");
+			}
+			if((key_temp & (1<<PD4)) != (key_state & (1<<PD4)))
+			{
+				if(key_temp & (1<<PD4)) // now open
+					printf("10;32;0;0\r\n");
+				else // now closed
+					printf("10;33;0;0\r\n");
+			}
+			if((key_temp & (1<<PD5)) != (key_state & (1<<PD5)))
+			{
+				if(key_temp & (1<<PD5)) // now open
+					printf("10;34;0;0\r\n");
+				else // now closed
+					printf("10;35;0;0\r\n");
+			}
+			if((key_temp & (1<<PD6)) != (key_state & (1<<PD6)))
+			{
+				if(key_temp & (1<<PD6)) // now open
+					printf("10;36;0;0\r\n");
+				else // now closed
+					printf("10;37;0;0\r\n");
+			}
+			key_state = key_temp;
+			_delay_ms(100);
+		}
 	}
 }
+
 
 /* 100 mal pro Sekunde (ungefaehr) */
 ISR(TIMER0_OVF_vect)
@@ -161,5 +208,16 @@ ISR(TIMER0_OVF_vect)
 		uartcount = 0;
 		mili_sec_counter = 0;
 	}
+
+/*	static char ct0, ct1;
+	char p;
+	
+	p = key_state ^ ~key_temp;	// key changed ?
+	ct0 = ~( ct0 & p );		// reset or count ct0
+	ct1 = (ct0 ^ ct1) & p;		// reset or count ct1
+	p &= ct0 & ct1;		// count until roll over 
+	key_state ^= p;		// then toggle debounced state
+	key_press |= key_state & p;	// 0->1: key pressing detect
+*/
 }
 
