@@ -200,15 +200,21 @@ int main(void)
 /* 100 mal pro Sekunde (ungefaehr) */
 ISR(TIMER0_OVF_vect)
 {
+	static uint8_t timeout_counter = 0;
 	TCNT0 = 255-156;
 
 	if(100 == mili_sec_counter++)
 	{
+		timeout_counter++;
 		printf("%d;%d;%d;%d\r\n",10,12,0,0);
 		uartcount = 0;
 		mili_sec_counter = 0;
 	}
-
+	if(timeout_counter > 3) // hard reset
+	{
+		wdt_enable(WDTO_15MS);
+		while(1);
+	}
 /*	static char ct0, ct1;
 	char p;
 	
