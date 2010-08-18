@@ -120,7 +120,7 @@ LDFLAGS += -lm
 # Type: avrdude -c ?
 # to get a full listing.
 #
-AVRDUDE_PROGRAMMER = ponyser
+AVRDUDE_PROGRAMMER = usbasp
 
 
 AVRDUDE_PORT = /dev/ttyS0	   # programmer connected to serial device

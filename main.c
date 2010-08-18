@@ -123,6 +123,9 @@ int main(void)
 						case COMMAND_SET_RELAIS: relais_port_state = txbuf[1];
 									 PORTC = relais_port_state;
 									 break;
+						case COMMAND_GET_RELAIS:
+									 printf("10;13;%d\r\n",PORTC);
+									 break;
 						case COMMAND_ACTIVATE_LCD: 
 									 PORTA &= ~(1<<PA7);
 									 break;

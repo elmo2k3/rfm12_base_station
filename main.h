@@ -9,6 +9,7 @@
 #define COMMAND_BEEP_ON 3
 #define COMMAND_BEEP_OFF 4
 #define COMMAND_LCD_TEXT 5
+#define COMMAND_GET_RELAIS 6
 
 #define MY_ADDRESS 0x02
 //#define DIP_KEYBOARD
